@@ -1,9 +1,8 @@
-import { Client, Message } from 'discord.js'
+import { Client, Message, MessageEmbed } from 'discord.js'
 import * as dotenv from 'dotenv'
 import path from 'path'
-import interactionCreate from './hooks/interactionCreate'
 import ready from './hooks/ready'
-import * as fs from 'fs'
+import { User } from './classes/user'
 
 dotenv.config({ path: path.resolve('./config.env') })
 const token = process.env.DSCRD_BOT_TK
@@ -14,62 +13,51 @@ const client = new Client({
   intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_MEMBERS', 'GUILD_MESSAGE_REACTIONS']
 })
 
-const emojiMapping = readConfig()
-console.log(emojiMapping)
-
 ready(client)
-interactionCreate(client)
 
 client.login(token)
 client.on('messageCreate', message => {
-  // if (message.channelId === '875900347145682944') {
-  //   applyReactions(message)
-  // }
-  if (message.channelId === '936494511054520390' || message.channelId === '936497596510388294') {
-    hypeItUp(message)
-  }
-})
-
-// function applyReactions (message : Message) {
-//   console.log('New Sale')
-//   console.log('Title')
-//   console.log(message.embeds[0].author ? message.embeds[0].author.name : 'null')
-//   const reactions = ['psych_sip', 'DF_Salute', 'df_bull']
-//   reactions.forEach(reaction => {
-//     if (message.guild) {
-//       const react = message.guild.emojis.cache.find(emoji => emoji.name === reaction)
-//       if (react) {
-//         message.react(react.id)
-//       }
-//     }
-//   })
-// }
-
-function hypeItUp (message : Message) {
-  const lc = message.content.toLowerCase()
-  emojiMapping.keyValues.forEach((kv: { key: string, emojis: string[] }) => {
-    // lower case version of message content searching reaction key values for a match
-    if (lc.includes(kv.key)) {
-      console.log(`Triggering hype it up! ${kv.key}`)
-      // if a match is found, grab the array of emojis
-      kv.emojis.forEach((emoji) => {
-        if (message.guild) {
-          // map those emojics to the guild's cache and apply by using the id
-          const reaction = message.guild.emojis.cache.find(c => c.name === emoji)
-          if (reaction) {
-            message.react(reaction.id)
-          } else {
-            message.react(`:${emoji}:`)
-          }
-        }
-      })
+  if (message.author.id === client.user?.id) return
+  process.env.GAME_CHANNEL?.split(',').forEach(channel => {
+    if (message.channelId === channel) {
+      processUserInfo(message)
     }
   })
+})
+
+async function processUserInfo (message: Message) {
+  const text = message.content.toLowerCase().replace(/\s\s+/g, ' ').split(' ')
+  const command = text[0]
+  const wallet = text[1]
+  if (command !== '!user') return
+  let user = await User.getByDiscordId(message.author.id, message)
+  if (wallet) {
+    if (!user) {
+      user = await User.create(message.author.id, message.author.username, wallet)
+      displayUserInfo(message, user, 'create')
+    } else {
+      user = await user.setWalletAddress(wallet)
+      displayUserInfo(message, user, 'update')
+    }
+  } else {
+    if (user) displayUserInfo(message, user)
+  }
 }
 
-function readConfig () {
-  console.log('Reading in reactions file ...')
-  // eslint-disable-next-line no-undef
-  const data = fs.readFileSync(path.join(__dirname, 'reactions.json'))
-  return JSON.parse(data.toString())
+function displayUserInfo (message: Message, user: User, status?: string) {
+  const embed = new MessageEmbed()
+    .setTitle(`DFZ LABS SUBJECT INFORMATION: ${user.getDiscordName()}`)
+    .addFields(
+      { name: 'Discord ID', value: `${user.getDiscordId()}`, inline: true },
+      { name: 'Discord Name', value: `${user.getDiscordName()}`, inline: true },
+      { name: 'ETH Wallet', value: `${user.getWalletAddress()}`, inline: true })
+    .setColor('#003300')
+    .setThumbnail(message.author.avatarURL() || '')
+  if (status) {
+    const embedStatus = new MessageEmbed()
+      .setTitle(`SUCCESSFULLY ${status === 'create' ? 'CREATED' : 'UPDATED'} PROFILE`)
+    message.reply({ embeds: [embedStatus, embed] })
+  } else {
+    message.reply({ embeds: [embed] })
+  }
 }

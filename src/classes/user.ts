@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { BaseCommandInteraction } from 'discord.js'
+import { Message } from 'discord.js'
 
 export class User {
   // User attributes. Should always be private as updating information will need to be reflected in the db
@@ -11,9 +11,9 @@ export class User {
   // constructor is private. User object sould be created by one of the get or create commands
   private constructor (id: number, discordID: string, discordName: string, walletAddress: string|undefined) {
     this.id = id
-    this.discordID = discordID
-    this.discordName = discordName
-    this.walletAddress = walletAddress
+    this.discordID = discordID.replace(/'/g, '')
+    this.discordName = discordName.replace(/'/g, '')
+    this.walletAddress = walletAddress ? walletAddress.replace(/'/g, '') : ''
   }
 
   getId () {
@@ -39,27 +39,27 @@ export class User {
   }
 
   // checks to see if user has specific role
-  async checkRole (role: bigint, interaction: BaseCommandInteraction): Promise<boolean> {
-    if (!interaction.guild) {
-      return new Promise((resolve, reject) => {
-        resolve(false)
-      })
-    }
-    const discordRole = await interaction.guild.roles.fetch(`${role}`)
-    if (!discordRole) {
-      return new Promise((resolve, reject) => {
-        resolve(false)
-      })
-    }
-    const members = discordRole.members
-    return new Promise((resolve, reject) => {
-      if (members.find(m => m.id === interaction.user.id)) {
-        resolve(true)
-      } else {
-        resolve(false)
-      }
-    })
-  }
+  // async checkRole (role: bigint, interaction: BaseCommandInteraction): Promise<boolean> {
+  //   if (!interaction.guild) {
+  //     return new Promise((resolve, reject) => {
+  //       resolve(false)
+  //     })
+  //   }
+  //   const discordRole = await interaction.guild.roles.fetch(`${role}`)
+  //   if (!discordRole) {
+  //     return new Promise((resolve, reject) => {
+  //       resolve(false)
+  //     })
+  //   }
+  //   const members = discordRole.members
+  //   return new Promise((resolve, reject) => {
+  //     if (members.find(m => m.id === interaction.user.id)) {
+  //       resolve(true)
+  //     } else {
+  //       resolve(false)
+  //     }
+  //   })
+  // }
 
   // grabs user object and updates db to match
   private async update (): Promise<User> {
@@ -89,7 +89,7 @@ export class User {
   }
 
   // gets user by discord id. Also checks basic data to ensure records match discord and updates if not
-  static async getByDiscordId (discordID: string, interaction?: BaseCommandInteraction): Promise<User|undefined> {
+  static async getByDiscordId (discordID: string, message: Message): Promise<User|undefined> {
     const reqURL = `${process.env.userAPI}/user/getByDiscord/${discordID}`
     console.debug(`Request to UserAPI: GET - ${reqURL}`)
 
@@ -99,18 +99,12 @@ export class User {
         .then(res => {
           const data = res.data.data
           if (data) {
-            if (interaction) {
-              // use interaction as much as possible to ensure we always have most up to date information
-              const user: User = new User(data.id, data.discordID, interaction.user.username, data.walletAddress)
-              resolve(user)
-              // if discord info does not match db then update
-              if ((interaction.user.id === user.discordID) && (interaction.user.username !== user.discordName)) {
-                user.discordName = interaction.user.username
-                user.update()
-              }
-            } else {
-              const user: User = new User(data.id, data.discordID, data.discordName, data.walletAddress)
-              resolve(user)
+            const user: User = new User(data.id, data.discordID, message.author.username, data.walletAddress)
+            resolve(user)
+            // if discord info does not match db then update
+            if ((message.author.id === user.discordID) && (message.author.username !== user.discordName)) {
+              user.discordName = message.author.username
+              user.update()
             }
           } else {
             resolve(undefined)
