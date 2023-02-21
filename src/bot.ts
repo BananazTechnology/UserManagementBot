@@ -17,6 +17,7 @@ ready(client)
 
 client.login(token)
 client.on('messageCreate', message => {
+  console.log(message.content)
   if (message.author.id === client.user?.id) return
   process.env.GAME_CHANNEL?.split(',').forEach(channel => {
     if (message.channelId === channel) {
