@@ -19,11 +19,18 @@ client.login(token)
 client.on('messageCreate', message => {
   console.log(message.content)
   if (message.author.id === client.user?.id) return
-  process.env.GAME_CHANNEL?.split(',').forEach(channel => {
-    if (message.channelId === channel) {
-      processUserInfo(message)
-    }
-  })
+  if (message.channelId === process.env.GAME_CHANNEL) {
+    processUserInfo(message)
+  } else if (message.channelId === process.env.GAME_CHANNEL1) {
+    processUserInfo(message)
+  } else if (message.channelId === process.env.GAME_CHANNEL2) {
+    processUserInfo(message)
+  }
+  // process.env.GAME_CHANNEL?.split(',').forEach(channel => {
+  //   if (message.channelId === channel) {
+  //     processUserInfo(message)
+  //   }
+  // })
 })
 
 async function processUserInfo (message: Message) {
