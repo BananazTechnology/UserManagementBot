@@ -1,6 +1,6 @@
 {
   "name": "fishing-game",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Deadfellaz Reaction Bot",
   "main": "src/bot.ts",
   "scripts": {
